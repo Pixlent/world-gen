@@ -15,6 +15,7 @@ import net.minestom.server.instance.LightingChunk;
 public class Main {
     public static void main(String[] args) {
         // Initialization
+        System.setProperty("minestom.chunk-view-distance", "32");
         MinecraftServer minecraftServer = MinecraftServer.init();
 
         // Create the instance
@@ -42,7 +43,6 @@ public class Main {
         });
 
         MojangAuth.init();
-        System.setProperty("CHUNK_VIEW_DISTANCE", "32");
 
         // Start the server on port 25565
         minecraftServer.start("0.0.0.0", 25565);
