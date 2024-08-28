@@ -79,16 +79,48 @@ public class TerrainGenerator implements Generator {
             return;
         }
 
-        System.out.println(random.evaluateNoise(bottom.x(), bottom.z()));
-
         if (random.evaluateNoise(bottom.x(), bottom.z()) > 0.09) {
             placeTree(unit, height, bottom);
         }
     }
 
     private void placeTree(GenerationUnit unit, double height, Point bottom) {
+        height = height + getTreeHeight(bottom);
         GenerationUnit fork = unit.fork(bottom.add(-2, 0, -2).withY(64+height), bottom.add(3, 0, 3).withY(75+height));
-        fork.modifier().fill(bottom.add(-2, 0, -2).withY(67 + height), bottom.add(3, 0, 3).withY(72+height), Block.OAK_LEAVES);
-        fork.modifier().fill(bottom.withY(64 + height), bottom.add(1, 0, 1).withY(71+height), Block.OAK_WOOD);
+        fork.modifier().fill(bottom.add(-2, 0, -2).withY(67 + height), bottom.add(3, 0, 3).withY(69+height), Block.OAK_LEAVES);
+        fork.modifier().fill(bottom.add(-1, 0, -1).withY(69 + height), bottom.add(2, 0, 2).withY(71+height), Block.OAK_LEAVES);
+
+        placeLeaf(fork, bottom.add(-2, 0, -2).withY(height + 68));
+        placeLeaf(fork, bottom.add(2, 0, -2).withY(height + 68));
+        placeLeaf(fork, bottom.add(-2, 0, 2).withY(height + 68));
+        placeLeaf(fork, bottom.add(2, 0, 2).withY(height + 68));
+
+        placeLeaf(fork, bottom.add(-1, 0, -1).withY(height + 69));
+        placeLeaf(fork, bottom.add(1, 0, -1).withY(height + 69));
+        placeLeaf(fork, bottom.add(-1, 0, 1).withY(height + 69));
+        placeLeaf(fork, bottom.add(1, 0, 1).withY(height + 69));
+
+        placeLeaf(fork, bottom.add(-1, 0, -1).withY(height + 70));
+        placeLeaf(fork, bottom.add(1, 0, -1).withY(height + 70));
+        placeLeaf(fork, bottom.add(-1, 0, 1).withY(height + 70));
+        placeLeaf(fork, bottom.add(1, 0, 1).withY(height + 70));
+
+        fork.modifier().fill(bottom.withY(64 + height - getTreeHeight(bottom)), bottom.add(1, 0, 1).withY(70+height), Block.OAK_WOOD);
+    }
+
+    private void placeLeaf(GenerationUnit fork, Point pos) {
+        if (random.evaluateNoise(pos.x(), pos.z()) > 0.6) return;
+        fork.modifier().setBlock(pos, Block.AIR);
+    }
+
+    private int getTreeHeight(Point pos) {
+        double randomness = random.evaluateNoise(pos.x(), pos.z());
+        if (randomness < .093) {
+            return 0;
+        }
+        if (randomness > .096) {
+            return -1;
+        }
+        return -2;
     }
 }
