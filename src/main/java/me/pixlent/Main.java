@@ -1,6 +1,9 @@
 package me.pixlent;
 
+import me.pixlent.commands.GamemodeCommand;
+import me.pixlent.commands.PoseCommand;
 import net.minestom.server.MinecraftServer;
+import net.minestom.server.command.CommandManager;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.GameMode;
 import net.minestom.server.entity.Player;
@@ -15,7 +18,7 @@ import net.minestom.server.instance.LightingChunk;
 public class Main {
     public static void main(String[] args) {
         // Initialization
-        System.setProperty("minestom.chunk-view-distance", "32");
+        System.setProperty("minestom.chunk-view-distance", "16");
         MinecraftServer minecraftServer = MinecraftServer.init();
 
         // Create the instance
@@ -25,6 +28,7 @@ public class Main {
         // Set the ChunkGenerator
         instanceContainer.setChunkSupplier(LightingChunk::new);
         instanceContainer.setGenerator(new TerrainGenerator());
+        instanceContainer.setTimeRate(0);
 
         // Add an event callback to specify the spawning instance (and the spawn position)
         GlobalEventHandler globalEventHandler = MinecraftServer.getGlobalEventHandler();
@@ -39,8 +43,13 @@ public class Main {
                 return;
             }
 
-            player.setGameMode(GameMode.CREATIVE);
+            player.setGameMode(GameMode.SPECTATOR);
+            player.setPermissionLevel(4);
         });
+
+        CommandManager commandManager = MinecraftServer.getCommandManager();
+        commandManager.register(new GamemodeCommand());
+        commandManager.register(new PoseCommand());
 
         MojangAuth.init();
 
