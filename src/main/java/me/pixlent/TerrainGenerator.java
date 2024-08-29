@@ -10,48 +10,60 @@ import net.minestom.server.instance.generator.GenerationUnit;
 import net.minestom.server.instance.generator.Generator;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Random;
+
 public class TerrainGenerator implements Generator {
     final long seed = 0;
-    final SplineInterpolator interpolator = SplineInterpolator.builder()
+    final Random seededSeedGenerator = new Random(seed);
+    final SplineInterpolator continentalInterpolator = SplineInterpolator.builder()
             .add(-1, 0)
             .add(-0.3, 30)
-            .add(0, 60)
-            .add(0.2, 70)
-            .add(0.4, 80)
-            .add(0.7, 100)
-            .add(1, 130)
+            .add(0.2, 61)
+            .add(0.5, 66)
+            .add(0.7, 90)
+            .add(1, 120)
             .build();
     final JNoise continentalness = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
-                    .setSeed(seed)
+                    .setSeed(seededSeedGenerator.nextLong())
                     .build())
             .octavate(4, 0.4, 2.2, FractalFunction.FBM, false)
             .scale(0.003)
             .build();
+    final SplineInterpolator erosionInterpolator = SplineInterpolator.builder()
+            .add(-1, 0)
+            .add(-0.2, 50)
+            .add(0.55, 25)
+            .add(0.6, 40)
+            .add(0.8, 45)
+            .add(0.85, 70)
+            .add(1, 100)
+            .build();
     final JNoise erosion = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
-                    .setSeed(seed)
+                    .setSeed(seededSeedGenerator.nextLong())
                     .build())
             .octavate(5, 0.3, 3, FractalFunction.FBM, false)
             .scale(0.002)
+            .invert()
             .build();
     final JNoise detail = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
-                    .setSeed(seed)
+                    .setSeed(seededSeedGenerator.nextLong())
                     .build())
             .octavate(8, 0.5, 1.6, FractalFunction.FBM, false)
             .scale(0.03)
             .build();
     final JNoise random = JNoise.newBuilder()
-            .white(seed)
+            .white(seededSeedGenerator.nextLong())
             .build();
     final JNoise grass = JNoise.newBuilder()
-            .fastSimplex(FastSimplexNoiseGenerator.newBuilder().setSeed(seed + 1).build())
+            .fastSimplex(FastSimplexNoiseGenerator.newBuilder().setSeed(seededSeedGenerator.nextLong()).build())
             .octavate(2, .3, 1.4, FractalFunction.FBM, false)
             .scale(.015)
             .build();
     final JNoise flowers = JNoise.newBuilder()
-            .fastSimplex(FastSimplexNoiseGenerator.newBuilder().setSeed(seed + 2).build())
+            .fastSimplex(FastSimplexNoiseGenerator.newBuilder().setSeed(seededSeedGenerator.nextLong()).build())
             .octavate(2, .3, 1.4, FractalFunction.FBM, false)
             .scale(.04)
             .build();
@@ -64,8 +76,7 @@ public class TerrainGenerator implements Generator {
             for (int z = 0; z < unit.size().z(); z++) {
                 Point bottom = start.add(x, 0, z);
 
-                double height = Math.round(interpolator.interpolate(continentalness.evaluateNoise(bottom.x(), bottom.z())));
-                //height += erosion.evaluateNoise(bottom.x(), bottom.z());
+                int height = getHeight(bottom);
 
                 unit.modifier().fill(bottom, bottom.add(1, 0, 1).withY(height), Block.STONE);
                 unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(64), Block.WATER);
@@ -81,6 +92,13 @@ public class TerrainGenerator implements Generator {
                 }
             }
         }
+    }
+
+    private int getHeight(Point pos) {
+        double continentalHeight = continentalInterpolator.interpolate(continentalness.evaluateNoise(pos.x(), pos.z()));
+        double erosionHeight = erosionInterpolator.interpolate(erosion.evaluateNoise(pos.x(), pos.z()));
+
+        return (int) Math.round(continentalHeight + erosionHeight - 30);
     }
 
     private void placeDecorations(GenerationUnit unit, double height, Point bottom) {
