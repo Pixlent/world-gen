@@ -137,6 +137,11 @@ public class TerrainGenerator implements Generator {
     }
 
     private void placeDecorations(GenerationUnit unit, double height, Point bottom) {
+        double slope = calculateSlope(bottom.blockX(), height, bottom.blockZ());
+        if (slope > 45) { // Example threshold for steepness
+            return;
+        }
+
         // Flowers
         if (flowers.evaluateNoise(bottom.x(), bottom.z()) > .6 && random.evaluateNoise(bottom.x(), bottom.z()) > .6) {
             unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + 1), Block.POPPY);
