@@ -5,14 +5,26 @@ import de.articdive.jnoise.modules.octavation.fractal_functions.FractalFunction;
 import de.articdive.jnoise.pipeline.JNoise;
 import me.pixlent.utils.SplineInterpolator;
 import net.minestom.server.coordinate.Point;
+import net.minestom.server.coordinate.Pos;
+import net.minestom.server.coordinate.Vec;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.generator.GenerationUnit;
 import net.minestom.server.instance.generator.Generator;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.Random;
 
 public class TerrainGenerator implements Generator {
+    private static final List<SlopeBlock> SLOPE_BLOCKS = List.of(
+            new SlopeBlock(20, Block.GRASS_BLOCK),
+            new SlopeBlock(45, Block.MOSS_BLOCK),
+            new SlopeBlock(75, Block.MOSSY_COBBLESTONE),
+            new SlopeBlock(80, Block.COBBLESTONE),
+            new SlopeBlock(85, Block.STONE),
+            new SlopeBlock(Double.MAX_VALUE, Block.DIRT)
+    );
+
     final long seed = 0;
     final Random seededSeedGenerator = new Random(seed);
     final SplineInterpolator continentalInterpolator = SplineInterpolator.builder()
@@ -70,25 +82,30 @@ public class TerrainGenerator implements Generator {
 
     @Override
     public void generate(@NotNull GenerationUnit unit) {
-        Point start = unit.absoluteStart();
+        final Point min = unit.absoluteStart();
+        final Point max = unit.absoluteEnd();
 
-        for (int x = 0; x < unit.size().x(); x++) {
-            for (int z = 0; z < unit.size().z(); z++) {
-                Point bottom = start.add(x, 0, z);
+        for (int x = min.blockX(); x < max.blockX(); x++) {
+            for (int z = min.blockZ(); z < max.blockZ(); z++) {
+                final Point bottom = new Pos(x, 0, z);
 
                 int height = getHeight(bottom);
 
-                unit.modifier().fill(bottom, bottom.add(1, 0, 1).withY(height), Block.STONE);
-                unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(64), Block.WATER);
+                final double slope = calculateSlope(x, height, z);
+                Block blockType = Block.DIRT;
+                for (final SlopeBlock slopeBlock : SLOPE_BLOCKS) {
+                    if (slope <= slopeBlock.slopeDegree()) {
+                        blockType = slopeBlock.blockType();
+                        break;
+                    }
+                }
 
-                if ((height) > 65) {
-                unit.modifier().fill(bottom.withY( height - 3), bottom.add(1, 0, 1).withY(height - 1), Block.DIRT);
-                unit.modifier().fill(bottom.withY(height - 1), bottom.add(1, 0, 1).withY(height), Block.GRASS_BLOCK);
+                unit.modifier().fill(new Vec(x, 0, z), new Vec(x + 1, height, z + 1), blockType);
 
-                placeDecorations(unit, height, bottom);
-
+                if (height > 65) {
+                    placeDecorations(unit, height, bottom);
                 } else {
-                    unit.modifier().fill(bottom.withY(height - 3), bottom.add(1, 0, 1).withY(height), Block.SAND);
+                    unit.modifier().fill(new Vec(x, height, z), new Vec(x + 1, 65, z + 1), Block.WATER);
                 }
             }
         }
@@ -101,7 +118,30 @@ public class TerrainGenerator implements Generator {
         return (int) Math.round(continentalHeight + erosionHeight - 30);
     }
 
+    private double calculateSlope(final int x, final double y, final int z) {
+        final int radius = 1;
+
+        double maxDiff = 0;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                if (dx == 0 && dz == 0) continue;
+
+                final double neighborY = getHeight(new Pos(x + dx, 0, z + dz));
+                final double diff = Math.abs(y - neighborY);
+
+                maxDiff = Math.max(maxDiff, diff);
+            }
+        }
+
+        return Math.toDegrees(Math.atan(maxDiff / radius));
+    }
+
     private void placeDecorations(GenerationUnit unit, double height, Point bottom) {
+        double slope = calculateSlope(bottom.blockX(), height, bottom.blockZ());
+        if (slope > 45) { // Example threshold for steepness
+            return;
+        }
+
         // Flowers
         if (flowers.evaluateNoise(bottom.x(), bottom.z()) > .6 && random.evaluateNoise(bottom.x(), bottom.z()) > .6) {
             unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + 1), Block.POPPY);
