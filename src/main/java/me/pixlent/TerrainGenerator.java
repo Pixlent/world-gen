@@ -16,40 +16,52 @@ import java.util.List;
 import java.util.Random;
 
 public class TerrainGenerator implements Generator {
-    private static final List<SlopeBlock> SLOPE_BLOCKS = List.of(
+    private static final List<SlopeBlock> SURFACE_SLOPE_BLOCKS = List.of(
             new SlopeBlock(20, Block.GRASS_BLOCK),
             new SlopeBlock(45, Block.MOSS_BLOCK),
             new SlopeBlock(75, Block.MOSSY_COBBLESTONE),
             new SlopeBlock(80, Block.COBBLESTONE),
-            new SlopeBlock(85, Block.STONE),
-            new SlopeBlock(Double.MAX_VALUE, Block.DIRT)
+            new SlopeBlock(85, Block.STONE)
+    );
+
+    private static final List<SlopeBlock> WATER_SLOPE_BLOCKS = List.of(
+            new SlopeBlock(45, Block.GRAVEL),
+            new SlopeBlock(75, Block.STONE),
+            new SlopeBlock(Double.MAX_VALUE, Block.STONE)
+    );
+
+    private static final List<SlopeBlock> BEACH_SLOPE_BLOCKS = List.of(
+            new SlopeBlock(60, Block.SAND),
+            new SlopeBlock(90, Block.MOSS_BLOCK),
+            new SlopeBlock(Double.MAX_VALUE, Block.SAND)
     );
 
     final long seed = 0;
     final Random seededSeedGenerator = new Random(seed);
     final SplineInterpolator continentalInterpolator = SplineInterpolator.builder()
             .add(-1, 0)
-            .add(-0.3, 30)
-            .add(0.2, 61)
-            .add(0.5, 66)
-            .add(0.7, 90)
+            .add(-0.6, 30)
+            .add(0.35, 62)
+            .add(0.5, 64)
+            .add(0.7, 70)
+            .add(0.855, 100)
             .add(1, 120)
             .build();
     final JNoise continentalness = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
                     .setSeed(seededSeedGenerator.nextLong())
                     .build())
-            .octavate(4, 0.4, 2.2, FractalFunction.FBM, false)
-            .scale(0.003)
+            .octavate(5, 0.5, 2.2, FractalFunction.FBM, false)
+            .scale(0.002)
             .build();
     final SplineInterpolator erosionInterpolator = SplineInterpolator.builder()
-            .add(-1, 0)
+            .add(-1, 20)
             .add(-0.2, 50)
             .add(0.55, 25)
             .add(0.6, 40)
             .add(0.8, 45)
             .add(0.85, 70)
-            .add(1, 100)
+            .add(1, 90)
             .build();
     final JNoise erosion = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
@@ -93,19 +105,38 @@ public class TerrainGenerator implements Generator {
 
                 final double slope = calculateSlope(x, height, z);
                 Block blockType = Block.DIRT;
-                for (final SlopeBlock slopeBlock : SLOPE_BLOCKS) {
-                    if (slope <= slopeBlock.slopeDegree()) {
-                        blockType = slopeBlock.blockType();
-                        break;
+                if (height >= 68) {
+                    for (final SlopeBlock slopeBlock : SURFACE_SLOPE_BLOCKS) {
+                        if (slope <= slopeBlock.slopeDegree()) {
+                            blockType = slopeBlock.blockType();
+                            break;
+                        }
+                    }
+                } else if(height > 61) {
+                    for (final SlopeBlock slopeBlock : BEACH_SLOPE_BLOCKS) {
+                        if (slope <= slopeBlock.slopeDegree()) {
+                            blockType = slopeBlock.blockType();
+                            break;
+                        }
+                    }
+                } else {
+                    for (final SlopeBlock slopeBlock : WATER_SLOPE_BLOCKS) {
+                        if (slope <= slopeBlock.slopeDegree()) {
+                            blockType = slopeBlock.blockType();
+                            break;
+                        }
                     }
                 }
 
                 unit.modifier().fill(new Vec(x, 0, z), new Vec(x + 1, height, z + 1), blockType);
 
-                if (height > 65) {
+                if (height >= 68) {
                     placeDecorations(unit, height, bottom);
                 } else {
                     unit.modifier().fill(new Vec(x, height, z), new Vec(x + 1, 65, z + 1), Block.WATER);
+                }
+                if (height <= 50) {
+                    placeOceanDecorations(unit, height, bottom);
                 }
             }
         }
@@ -164,6 +195,23 @@ public class TerrainGenerator implements Generator {
 
         if (random.evaluateNoise(bottom.x(), bottom.z()) > 0.09) {
             placeTree(unit, height, bottom);
+        }
+    }
+
+    private void placeOceanDecorations(GenerationUnit unit, double height, Point bottom) {
+        if (flowers.evaluateNoise(bottom.x(), bottom.z()) > -0.3 && random.evaluateNoise(bottom.x(), bottom.z()) > .5) {
+            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + ((64 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z()))) + 1), Block.KELP_PLANT);
+            unit.modifier().setBlock(bottom.withY(height + (random.evaluateNoise(bottom.x(), bottom.z()))), Block.KELP);
+            return;
+        }
+        if (flowers.evaluateNoise(bottom.x(), bottom.z()) < -0.2) {
+            if (random.evaluateNoise(bottom.x(), bottom.z()) > .4) {
+                unit.modifier().setBlock(bottom.withY(height), Block.SEAGRASS);
+            }
+            if (random.evaluateNoise(bottom.x(), bottom.z()) < -0.6) {
+                unit.modifier().setBlock(bottom.withY(height), Block.TALL_SEAGRASS);
+                unit.modifier().setBlock(bottom.withY(height + 1), Block.TALL_SEAGRASS.withProperty("half","upper"));
+            }
         }
     }
 
