@@ -2,6 +2,7 @@ package me.pixlent;
 
 import me.pixlent.commands.GamemodeCommand;
 import me.pixlent.commands.PoseCommand;
+import net.kyori.adventure.text.Component;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.CommandManager;
 import net.minestom.server.coordinate.Pos;
@@ -9,6 +10,7 @@ import net.minestom.server.entity.GameMode;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.GlobalEventHandler;
 import net.minestom.server.event.entity.EntitySpawnEvent;
+import net.minestom.server.event.entity.EntityTickEvent;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.instance.InstanceContainer;
@@ -26,8 +28,10 @@ public class Main {
         InstanceContainer instanceContainer = instanceManager.createInstanceContainer();
 
         // Set the ChunkGenerator
+        TerrainGenerator terrainGenerator = new TerrainGenerator();
+
         instanceContainer.setChunkSupplier(LightingChunk::new);
-        instanceContainer.setGenerator(new TerrainGenerator());
+        instanceContainer.setGenerator(terrainGenerator);
         instanceContainer.setTimeRate(0);
 
         // Add an event callback to specify the spawning instance (and the spawn position)
@@ -45,6 +49,16 @@ public class Main {
 
             player.setGameMode(GameMode.SPECTATOR);
             player.setPermissionLevel(4);
+        });
+
+        globalEventHandler.addListener(EntityTickEvent.class, event -> {
+            if (!(event.getEntity() instanceof Player player)) {
+                return;
+            }
+
+            Pos pos = player.getPosition();
+
+            player.sendActionBar(Component.text("Continentalness: " + terrainGenerator.continentalness.evaluateNoise(pos.x(), pos.z())));
         });
 
         CommandManager commandManager = MinecraftServer.getCommandManager();

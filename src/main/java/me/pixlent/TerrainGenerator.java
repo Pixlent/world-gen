@@ -142,7 +142,7 @@ public class TerrainGenerator implements Generator {
         }
     }
 
-    private int getHeight(Point pos) {
+    public int getHeight(Point pos) {
         double continentalHeight = continentalInterpolator.interpolate(continentalness.evaluateNoise(pos.x(), pos.z()));
         double erosionHeight = erosionInterpolator.interpolate(erosion.evaluateNoise(pos.x(), pos.z()));
 
@@ -200,8 +200,8 @@ public class TerrainGenerator implements Generator {
 
     private void placeOceanDecorations(GenerationUnit unit, double height, Point bottom) {
         if (flowers.evaluateNoise(bottom.x(), bottom.z()) > -0.3 && random.evaluateNoise(bottom.x(), bottom.z()) > .5) {
-            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + ((64 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z()))) + 1), Block.KELP_PLANT);
-            unit.modifier().setBlock(bottom.withY(height + (random.evaluateNoise(bottom.x(), bottom.z()))), Block.KELP);
+            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + ((64 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP_PLANT);
+            unit.modifier().setBlock(bottom.withY(height + ((64 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP);
             return;
         }
         if (flowers.evaluateNoise(bottom.x(), bottom.z()) < -0.2) {
