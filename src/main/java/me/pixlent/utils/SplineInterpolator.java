@@ -161,8 +161,8 @@ public class SplineInterpolator {
     public String toGraph() {
         // generates an ascii graph
         StringBuilder str = new StringBuilder();
-        int rows = 32;
-        int cols = 64;
+        int rows = 16;
+        int cols = 128;
 
         for (int i = rows - 1; i > 0; i--) {
             double y = (double) i / rows;

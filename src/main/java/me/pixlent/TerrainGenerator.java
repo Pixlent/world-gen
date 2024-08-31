@@ -1,5 +1,6 @@
 package me.pixlent;
 
+import de.articdive.jnoise.core.api.modifiers.NoiseModifier;
 import de.articdive.jnoise.generators.noisegen.opensimplex.FastSimplexNoiseGenerator;
 import de.articdive.jnoise.modules.octavation.fractal_functions.FractalFunction;
 import de.articdive.jnoise.pipeline.JNoise;
@@ -39,13 +40,15 @@ public class TerrainGenerator implements Generator {
     final long seed = 0;
     final Random seededSeedGenerator = new Random(seed);
     final SplineInterpolator continentalInterpolator = SplineInterpolator.builder()
-            .add(-1, 0)
-            .add(-0.6, 30)
-            .add(0.35, 62)
-            .add(0.5, 64)
-            .add(0.7, 70)
-            .add(0.855, 100)
-            .add(1, 120)
+            .add(0.0, 0.0)
+            .add(0.25, 0.1)
+            .add(0.285, 0.38)
+            .add(0.3, 0.444)
+            .add(0.39, 0.666)
+            .add(0.433, 0.777)
+            .add(0.5, 0.888)
+            .add(0.7, 0.97)
+            .add(1, 1)
             .build();
     final JNoise continentalness = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
@@ -53,30 +56,26 @@ public class TerrainGenerator implements Generator {
                     .build())
             .octavate(5, 0.5, 2.2, FractalFunction.FBM, false)
             .scale(0.002)
+            .addModifier(new AbsClampNoiseModifier())
             .build();
     final SplineInterpolator erosionInterpolator = SplineInterpolator.builder()
-            .add(-1, 20)
-            .add(-0.2, 50)
-            .add(0.55, 25)
-            .add(0.6, 40)
-            .add(0.8, 45)
-            .add(0.85, 70)
-            .add(1, 90)
+            .add(0, 0)
+            .add(0.1, 0.3)
+            .add(0.5, 0.9)
+            .add(0.6, 0.91)
+            .add(0.62, 0.7)
+            .add(0.7, 0.71)
+            .add(0.72, 0.91)
+            .add(1, 1)
             .build();
     final JNoise erosion = JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
                     .setSeed(seededSeedGenerator.nextLong())
                     .build())
             .octavate(5, 0.3, 3, FractalFunction.FBM, false)
-            .scale(0.002)
+            .scale(0.0015)
             .invert()
-            .build();
-    final JNoise detail = JNoise.newBuilder()
-            .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
-                    .setSeed(seededSeedGenerator.nextLong())
-                    .build())
-            .octavate(8, 0.5, 1.6, FractalFunction.FBM, false)
-            .scale(0.03)
+            .addModifier(new AbsClampNoiseModifier())
             .build();
     final JNoise random = JNoise.newBuilder()
             .white(seededSeedGenerator.nextLong())
@@ -99,54 +98,74 @@ public class TerrainGenerator implements Generator {
 
         for (int x = min.blockX(); x < max.blockX(); x++) {
             for (int z = min.blockZ(); z < max.blockZ(); z++) {
-                final Point bottom = new Pos(x, 0, z);
 
-                int height = getHeight(bottom);
+                populate(unit, x, z);
+            }
+        }
+    }
 
-                final double slope = calculateSlope(x, height, z);
-                Block blockType = Block.DIRT;
-                if (height >= 68) {
-                    for (final SlopeBlock slopeBlock : SURFACE_SLOPE_BLOCKS) {
-                        if (slope <= slopeBlock.slopeDegree()) {
-                            blockType = slopeBlock.blockType();
-                            break;
-                        }
-                    }
-                } else if(height > 61) {
-                    for (final SlopeBlock slopeBlock : BEACH_SLOPE_BLOCKS) {
-                        if (slope <= slopeBlock.slopeDegree()) {
-                            blockType = slopeBlock.blockType();
-                            break;
-                        }
-                    }
-                } else {
-                    for (final SlopeBlock slopeBlock : WATER_SLOPE_BLOCKS) {
-                        if (slope <= slopeBlock.slopeDegree()) {
-                            blockType = slopeBlock.blockType();
-                            break;
-                        }
-                    }
+    private void populate(@NotNull GenerationUnit unit, int x, int z) {
+        final Point bottom = new Pos(x, 0, z);
+
+        int height = getHeight(bottom);
+
+        final double slope = calculateSlope(x, height, z);
+        Block blockType = Block.DIRT;
+        if (height >= 68) {
+            for (final SlopeBlock slopeBlock : SURFACE_SLOPE_BLOCKS) {
+                if (slope <= slopeBlock.slopeDegree()) {
+                    blockType = slopeBlock.blockType();
+                    break;
                 }
-
-                unit.modifier().fill(new Vec(x, 0, z), new Vec(x + 1, height, z + 1), blockType);
-
-                if (height >= 68) {
-                    placeDecorations(unit, height, bottom);
-                } else {
-                    unit.modifier().fill(new Vec(x, height, z), new Vec(x + 1, 65, z + 1), Block.WATER);
+            }
+        } else if(height > 61) {
+            for (final SlopeBlock slopeBlock : BEACH_SLOPE_BLOCKS) {
+                if (slope <= slopeBlock.slopeDegree()) {
+                    blockType = slopeBlock.blockType();
+                    break;
                 }
-                if (height <= 50) {
-                    placeOceanDecorations(unit, height, bottom);
+            }
+        } else {
+            for (final SlopeBlock slopeBlock : WATER_SLOPE_BLOCKS) {
+                if (slope <= slopeBlock.slopeDegree()) {
+                    blockType = slopeBlock.blockType();
+                    break;
                 }
             }
         }
+
+        unit.modifier().fill(new Vec(x, 0, z), new Vec(x + 1, height, z + 1), blockType);
+
+        if (height >= 68) {
+            placeDecorations(unit, height, bottom);
+        } else {
+            unit.modifier().fill(new Vec(x, height, z), new Vec(x + 1, 65, z + 1), Block.WATER);
+        }
+        if (height <= 50) {
+            placeOceanDecorations(unit, height, bottom);
+        }
+    }
+
+    private double getDensity(int x, int y, int z) {
+        double continentalHeight = continentalness.evaluateNoise(x, y, z);
+        double erosionHeight = erosion.evaluateNoise(x, y, z);
+
+        return continentalHeight + erosionHeight;
     }
 
     public int getHeight(Point pos) {
         double continentalHeight = continentalInterpolator.interpolate(continentalness.evaluateNoise(pos.x(), pos.z()));
         double erosionHeight = erosionInterpolator.interpolate(erosion.evaluateNoise(pos.x(), pos.z()));
 
-        return (int) Math.round(continentalHeight + erosionHeight - 30);
+        double surfaceLevel;
+
+        if (continentalHeight < 4) {
+            surfaceLevel = continentalHeight;
+        } else {
+            surfaceLevel = (continentalHeight + erosionHeight) / 2;
+        }
+
+        return (int) Math.round(surfaceLevel * 80);
     }
 
     private double calculateSlope(final int x, final double y, final int z) {
@@ -200,8 +219,8 @@ public class TerrainGenerator implements Generator {
 
     private void placeOceanDecorations(GenerationUnit unit, double height, Point bottom) {
         if (flowers.evaluateNoise(bottom.x(), bottom.z()) > -0.3 && random.evaluateNoise(bottom.x(), bottom.z()) > .5) {
-            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + ((64 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP_PLANT);
-            unit.modifier().setBlock(bottom.withY(height + ((64 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP);
+            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + ((67   - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP_PLANT);
+            unit.modifier().setBlock(bottom.withY(height + ((67 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP);
             return;
         }
         if (flowers.evaluateNoise(bottom.x(), bottom.z()) < -0.2) {
@@ -253,5 +272,13 @@ public class TerrainGenerator implements Generator {
             return -1;
         }
         return -2;
+    }
+
+    public record AbsClampNoiseModifier() implements NoiseModifier {
+
+        @Override
+        public double apply(double result) {
+            return (result + 1.0) * 0.5;
+        }
     }
 }

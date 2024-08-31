@@ -17,6 +17,9 @@ import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.LightingChunk;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 public class Main {
     public static void main(String[] args) {
         // Initialization
@@ -33,6 +36,8 @@ public class Main {
         instanceContainer.setChunkSupplier(LightingChunk::new);
         instanceContainer.setGenerator(terrainGenerator);
         instanceContainer.setTimeRate(0);
+
+        System.out.println(terrainGenerator.continentalInterpolator.toGraph());
 
         // Add an event callback to specify the spawning instance (and the spawn position)
         GlobalEventHandler globalEventHandler = MinecraftServer.getGlobalEventHandler();
@@ -58,7 +63,10 @@ public class Main {
 
             Pos pos = player.getPosition();
 
-            player.sendActionBar(Component.text("Continentalness: " + terrainGenerator.continentalness.evaluateNoise(pos.x(), pos.z())));
+            double continentalness = round(terrainGenerator.continentalness.evaluateNoise(pos.x(), pos.z()), 3);
+            double erosion = round(terrainGenerator.erosion.evaluateNoise(pos.x(), pos.y()), 3);
+
+            player.sendActionBar(Component.text("Continentalness: " + continentalness + " erosion: " + erosion));
         });
 
         CommandManager commandManager = MinecraftServer.getCommandManager();
@@ -69,5 +77,13 @@ public class Main {
 
         // Start the server on port 25565
         minecraftServer.start("0.0.0.0", 25565);
+    }
+
+    public static double round(double value, int places) {
+        if (places < 0) throw new IllegalArgumentException();
+
+        BigDecimal bd = BigDecimal.valueOf(value);
+        bd = bd.setScale(places, RoundingMode.HALF_EVEN);
+        return bd.doubleValue();
     }
 }
