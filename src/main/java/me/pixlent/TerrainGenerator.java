@@ -4,6 +4,7 @@ import de.articdive.jnoise.core.api.modifiers.NoiseModifier;
 import de.articdive.jnoise.generators.noisegen.opensimplex.FastSimplexNoiseGenerator;
 import de.articdive.jnoise.modules.octavation.fractal_functions.FractalFunction;
 import de.articdive.jnoise.pipeline.JNoise;
+import me.pixlent.utils.ExecutionTimer;
 import me.pixlent.utils.SplineInterpolator;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
@@ -93,32 +94,42 @@ public class TerrainGenerator implements Generator {
 
     @Override
     public void generate(@NotNull GenerationUnit unit) {
+        final ExecutionTimer timer = new ExecutionTimer();
         final Point min = unit.absoluteStart();
         final Point max = unit.absoluteEnd();
 
         for (int x = min.blockX(); x < max.blockX(); x++) {
             for (int z = min.blockZ(); z < max.blockZ(); z++) {
+                double previousDensity = 0.0;
+                for (int y = max.blockY(); y > min.blockY(); y--) {
+                    double density = getDensity(x, y, z);
+                    if (density > 1) {
+                        if (previousDensity > 1) {
+                            populate(unit, new Vec(x, y, z), density);
+                        } else {
+                            unit.modifier().setBlock(x, y, z, Block.STONE);
+                        }
+                    }
+                    previousDensity = density;
+                }
 
-                populate(unit, x, z);
+                //populate(unit, new Vec(x, getHeight(new Vec(x, 0, z)), z));
             }
         }
+        System.out.println("Loading chunk took: " + timer.finished() + "ms");
     }
 
-    private void populate(@NotNull GenerationUnit unit, int x, int z) {
-        final Point bottom = new Pos(x, 0, z);
-
-        int height = getHeight(bottom);
-
-        final double slope = calculateSlope(x, height, z);
+    private void populate(@NotNull GenerationUnit unit, Vec pos, double density) {
+        final double slope = calculateSlope(pos.blockX(), pos.y(), pos.blockZ());
         Block blockType = Block.DIRT;
-        if (height >= 68) {
+        if (pos.y() >= 68) {
             for (final SlopeBlock slopeBlock : SURFACE_SLOPE_BLOCKS) {
                 if (slope <= slopeBlock.slopeDegree()) {
                     blockType = slopeBlock.blockType();
                     break;
                 }
             }
-        } else if(height > 61) {
+        } else if(pos.y() > 61) {
             for (final SlopeBlock slopeBlock : BEACH_SLOPE_BLOCKS) {
                 if (slope <= slopeBlock.slopeDegree()) {
                     blockType = slopeBlock.blockType();
@@ -134,23 +145,32 @@ public class TerrainGenerator implements Generator {
             }
         }
 
-        unit.modifier().fill(new Vec(x, 0, z), new Vec(x + 1, height, z + 1), blockType);
+        unit.modifier().setBlock(pos, blockType);
 
-        if (height >= 68) {
-            placeDecorations(unit, height, bottom);
-        } else {
-            unit.modifier().fill(new Vec(x, height, z), new Vec(x + 1, 65, z + 1), Block.WATER);
-        }
-        if (height <= 50) {
-            placeOceanDecorations(unit, height, bottom);
+        if (pos.y() >= 68) {
+            placeDecorations(unit, pos);
+        } else if (density <= 0) {
+            unit.modifier().fill(pos, pos.add(1, 0, 1).withY(65), Block.WATER);
+            if (pos.y() <= 50) {
+                placeDecorations(unit, pos);
+            }
         }
     }
 
     private double getDensity(int x, int y, int z) {
         double continentalHeight = continentalness.evaluateNoise(x, y, z);
         double erosionHeight = erosion.evaluateNoise(x, y, z);
+        double density = continentalHeight + erosionHeight;
+        int surfaceHeight = getHeight(new Vec(x, y, z));
 
-        return continentalHeight + erosionHeight;
+        if (surfaceHeight >= y - 10) {
+            return density * 1.5;
+        }
+        if (surfaceHeight <= y + 15) {
+            return density * 0.5;
+        }
+
+        return density;
     }
 
     public int getHeight(Point pos) {
@@ -186,76 +206,77 @@ public class TerrainGenerator implements Generator {
         return Math.toDegrees(Math.atan(maxDiff / radius));
     }
 
-    private void placeDecorations(GenerationUnit unit, double height, Point bottom) {
-        double slope = calculateSlope(bottom.blockX(), height, bottom.blockZ());
+    private void placeDecorations(GenerationUnit unit, Point pos) {
+        double slope = calculateSlope(pos.blockX(), pos.blockY(), pos.blockZ());
         if (slope > 45) { // Example threshold for steepness
             return;
         }
 
         // Flowers
-        if (flowers.evaluateNoise(bottom.x(), bottom.z()) > .6 && random.evaluateNoise(bottom.x(), bottom.z()) > .6) {
-            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + 1), Block.POPPY);
+        if (flowers.evaluateNoise(pos.x(), pos.z()) > .6 && random.evaluateNoise(pos.x(), pos.z()) > .6) {
+            unit.modifier().fill(pos, pos.add(1, 1, 1), Block.POPPY);
             return;
         }
-        if (flowers.evaluateNoise(bottom.x(), bottom.z()) < -0.6 && random.evaluateNoise(bottom.x(), bottom.z()) > .6) {
-            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + 1), Block.DANDELION);
+        if (flowers.evaluateNoise(pos.x(), pos.z()) < -0.6 && random.evaluateNoise(pos.x(), pos.z()) > .6) {
+            unit.modifier().fill(pos, pos.add(1, 1, 1), Block.DANDELION);
             return;
         }
         // Grass
-        if (grass.evaluateNoise(bottom.x(), bottom.z()) > 0.8 || random.evaluateNoise(bottom.x(), bottom.z()) > 0.1) {
-            if (random.evaluateNoise(bottom.x(), bottom.z()) < 0.2) {
-                unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + 1), Block.TALL_GRASS);
-                unit.modifier().fill(bottom.withY(height + 1), bottom.add(1, 0, 1).withY(height + 2), Block.TALL_GRASS.withProperty("half","upper"));
+        if (grass.evaluateNoise(pos.x(), pos.z()) > 0.8 || random.evaluateNoise(pos.x(), pos.z()) > 0.1) {
+            if (random.evaluateNoise(pos.x(), pos.z()) < 0.2) {
+                unit.modifier().fill(pos, pos.add(1, 1, 1), Block.TALL_GRASS);
+                unit.modifier().fill(pos.add(0, 1, 0), pos.add(1, 2, 1), Block.TALL_GRASS.withProperty("half","upper"));
             } else {
-                unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + 1), Block.SHORT_GRASS);
+                unit.modifier().fill(pos, pos.add(1, 1, 1), Block.SHORT_GRASS);
             }
             return;
         }
 
-        if (random.evaluateNoise(bottom.x(), bottom.z()) > 0.09) {
-            placeTree(unit, height, bottom);
+        if (random.evaluateNoise(pos.x(), pos.z()) > 0.09) {
+            placeTree(unit, pos);
         }
     }
 
-    private void placeOceanDecorations(GenerationUnit unit, double height, Point bottom) {
-        if (flowers.evaluateNoise(bottom.x(), bottom.z()) > -0.3 && random.evaluateNoise(bottom.x(), bottom.z()) > .5) {
-            unit.modifier().fill(bottom.withY(height), bottom.add(1, 0, 1).withY(height + ((67   - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP_PLANT);
-            unit.modifier().setBlock(bottom.withY(height + ((67 - height) * .8 * (random.evaluateNoise(bottom.x(), bottom.z())))), Block.KELP);
+    private void placeOceanDecorations(GenerationUnit unit, Point pos) {
+        if (flowers.evaluateNoise(pos.x(), pos.z()) > -0.3 && random.evaluateNoise(pos.x(), pos.z()) > .5) {
+            unit.modifier().fill(pos, pos.add(1, 0, 1).add(0, ((67   - pos.y()) * .8 * (random.evaluateNoise(pos.x(), pos.z()))), 0), Block.KELP_PLANT);
+            unit.modifier().setBlock(pos.add(0, (67 - pos.y()) * .8 * (random.evaluateNoise(pos.x(), pos.z())), 0), Block.KELP);
             return;
         }
-        if (flowers.evaluateNoise(bottom.x(), bottom.z()) < -0.2) {
-            if (random.evaluateNoise(bottom.x(), bottom.z()) > .4) {
-                unit.modifier().setBlock(bottom.withY(height), Block.SEAGRASS);
+        if (flowers.evaluateNoise(pos.x(), pos.z()) < -0.2) {
+            if (random.evaluateNoise(pos.x(), pos.z()) > .4) {
+                unit.modifier().setBlock(pos, Block.SEAGRASS);
             }
-            if (random.evaluateNoise(bottom.x(), bottom.z()) < -0.6) {
-                unit.modifier().setBlock(bottom.withY(height), Block.TALL_SEAGRASS);
-                unit.modifier().setBlock(bottom.withY(height + 1), Block.TALL_SEAGRASS.withProperty("half","upper"));
+            if (random.evaluateNoise(pos.x(), pos.z()) < -0.6) {
+                unit.modifier().setBlock(pos, Block.TALL_SEAGRASS);
+                unit.modifier().setBlock(pos.add(0, 1, 0), Block.TALL_SEAGRASS.withProperty("half","upper"));
             }
         }
     }
 
-    private void placeTree(GenerationUnit unit, double height, Point bottom) {
-        height = height + getTreeHeight(bottom);
-        GenerationUnit fork = unit.fork(bottom.add(-2, 0, -2).withY(height), bottom.add(3, 0, 3).withY(height + 11));
-        fork.modifier().fill(bottom.add(-2, 0, -2).withY(height + 3), bottom.add(3, 0, 3).withY(height + 5), Block.OAK_LEAVES);
-        fork.modifier().fill(bottom.add(-1, 0, -1).withY(height + 5), bottom.add(2, 0, 2).withY(height + 7), Block.OAK_LEAVES);
+    private void placeTree(GenerationUnit unit, Point pos) {
+        pos = pos.withY(pos.y() + getTreeHeight(pos));
 
-        placeLeaf(fork, bottom.add(-2, 0, -2).withY(height + 4));
-        placeLeaf(fork, bottom.add(2, 0, -2).withY(height + 4));
-        placeLeaf(fork, bottom.add(-2, 0, 2).withY(height + 4));
-        placeLeaf(fork, bottom.add(2, 0, 2).withY(height + 4));
+        GenerationUnit fork = unit.fork(pos.add(-2, 0, -2), pos.add(3, 11, 3));
+        fork.modifier().fill(pos.add(-2, 3, -2), pos.add(3, 5, 3), Block.OAK_LEAVES);
+        fork.modifier().fill(pos.add(-1, 5, -1), pos.add(2, 7, 2), Block.OAK_LEAVES);
 
-        placeLeaf(fork, bottom.add(-1, 0, -1).withY(height + 5));
-        placeLeaf(fork, bottom.add(1, 0, -1).withY(height + 5));
-        placeLeaf(fork, bottom.add(-1, 0, 1).withY(height + 5));
-        placeLeaf(fork, bottom.add(1, 0, 1).withY(height + 5));
+        placeLeaf(fork, pos.add(-2, 4, -2));
+        placeLeaf(fork, pos.add(2, 4, -2));
+        placeLeaf(fork, pos.add(-2, 4, 2));
+        placeLeaf(fork, pos.add(2, 4, 2));
 
-        placeLeaf(fork, bottom.add(-1, 0, -1).withY(height + 6));
-        placeLeaf(fork, bottom.add(1, 0, -1).withY(height + 6));
-        placeLeaf(fork, bottom.add(-1, 0, 1).withY(height + 6));
-        placeLeaf(fork, bottom.add(1, 0, 1).withY(height + 6));
+        placeLeaf(fork, pos.add(-1, 5, -1));
+        placeLeaf(fork, pos.add(1, 5, -1));
+        placeLeaf(fork, pos.add(-1, 5, 1));
+        placeLeaf(fork, pos.add(1, 5, 1));
 
-        fork.modifier().fill(bottom.withY(height - getTreeHeight(bottom)), bottom.add(1, 0, 1).withY(height + 6), Block.OAK_WOOD);
+        placeLeaf(fork, pos.add(-1, 6, -1));
+        placeLeaf(fork, pos.add(1, 6, -1));
+        placeLeaf(fork, pos.add(-1, 6, 1));
+        placeLeaf(fork, pos.add(1, 6, 1));
+
+        fork.modifier().fill(pos.withY(pos.y() - getTreeHeight(pos)), pos.add(1, 6, 1), Block.OAK_WOOD);
     }
 
     private void placeLeaf(GenerationUnit fork, Point pos) {
@@ -272,6 +293,10 @@ public class TerrainGenerator implements Generator {
             return -1;
         }
         return -2;
+    }
+
+    private boolean inRange(double min, double max, double num) {
+        return num >= min && num <= max;
     }
 
     public record AbsClampNoiseModifier() implements NoiseModifier {

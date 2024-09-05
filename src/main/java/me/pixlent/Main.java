@@ -31,13 +31,11 @@ public class Main {
         InstanceContainer instanceContainer = instanceManager.createInstanceContainer();
 
         // Set the ChunkGenerator
-        TerrainGenerator terrainGenerator = new TerrainGenerator();
+        //TerrainGenerator terrainGenerator = new TerrainGenerator();
 
         instanceContainer.setChunkSupplier(LightingChunk::new);
-        instanceContainer.setGenerator(terrainGenerator);
+        instanceContainer.setGenerator(new TestGenerator());
         instanceContainer.setTimeRate(0);
-
-        System.out.println(terrainGenerator.continentalInterpolator.toGraph());
 
         // Add an event callback to specify the spawning instance (and the spawn position)
         GlobalEventHandler globalEventHandler = MinecraftServer.getGlobalEventHandler();
@@ -63,10 +61,10 @@ public class Main {
 
             Pos pos = player.getPosition();
 
-            double continentalness = round(terrainGenerator.continentalness.evaluateNoise(pos.x(), pos.z()), 3);
-            double erosion = round(terrainGenerator.erosion.evaluateNoise(pos.x(), pos.y()), 3);
+            //double continentalness = round(terrainGenerator.continentalness.evaluateNoise(pos.x(), pos.z()), 3);
+            //double erosion = round(terrainGenerator.erosion.evaluateNoise(pos.x(), pos.y()), 3);
 
-            player.sendActionBar(Component.text("Continentalness: " + continentalness + " erosion: " + erosion));
+            //player.sendActionBar(Component.text("Continentalness: " + continentalness + " Erosion: " + erosion));
         });
 
         CommandManager commandManager = MinecraftServer.getCommandManager();
