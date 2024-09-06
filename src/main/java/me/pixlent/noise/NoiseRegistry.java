@@ -1,15 +1,18 @@
-package me.pixlent;
-
+package me.pixlent.noise;
 
 import de.articdive.jnoise.generators.noisegen.opensimplex.FastSimplexNoiseGenerator;
 import de.articdive.jnoise.modules.octavation.fractal_functions.FractalFunction;
 import de.articdive.jnoise.pipeline.JNoise;
+import me.pixlent.TerrainGenerator;
 
 public enum NoiseRegistry {
     CONTINENTALNESS(JNoise.newBuilder()
-            .fastSimplex(FastSimplexNoiseGenerator.newBuilder().build())
-            .scale(0.005)
-            .octavate(5, 0.5, 1.2, FractalFunction.FBM, false)
+            .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
+                    .setSeed(0)
+                    .build())
+            .octavate(5, 0.5, 2.2, FractalFunction.FBM, false)
+            .scale(0.002)
+            .addModifier(new TerrainGenerator.AbsClampNoiseModifier())
             .build()),
     EROSION(JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder().build())

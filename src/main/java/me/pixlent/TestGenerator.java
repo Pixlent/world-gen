@@ -8,6 +8,12 @@ import net.minestom.server.instance.generator.Generator;
 import org.jetbrains.annotations.NotNull;
 
 public class TestGenerator implements Generator {
+    TerrainBuilder terrainBuilder;
+
+    public TestGenerator(TerrainBuilder terrainBuilder) {
+        this.terrainBuilder = terrainBuilder;
+    }
+
     @Override
     public void generate(@NotNull GenerationUnit unit) {
         final Point min = unit.absoluteStart();
@@ -15,8 +21,9 @@ public class TestGenerator implements Generator {
 
         for (int x = min.blockX(); x < max.blockX(); x++) {
             for (int z = min.blockZ(); z < max.blockZ(); z++) {
+                int surfaceHeight = terrainBuilder.getSurfaceHeight(x, z);
                 // Column and rows
-                unit.modifier().fill(new Vec(x, 0, z), new Vec(x+1, 60 + NoiseRegistry.CONTINENTALNESS.evaluateNoise(x, z) * 16, z+1), Block.STONE);
+                unit.modifier().fill(new Vec(x, 0, z), new Vec(x+1, surfaceHeight, z+1), Block.STONE);
             }
         }
     }
