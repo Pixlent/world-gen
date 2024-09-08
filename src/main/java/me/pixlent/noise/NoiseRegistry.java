@@ -6,17 +6,21 @@ import de.articdive.jnoise.pipeline.JNoise;
 import me.pixlent.TerrainGenerator;
 
 public enum NoiseRegistry {
-    CONTINENTALNESS(JNoise.newBuilder()
+    WEIRDNESS(JNoise.newBuilder()
             .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
                     .setSeed(0)
                     .build())
-            .octavate(5, 0.5, 2.2, FractalFunction.FBM, false)
-            .scale(0.002)
-            .addModifier(new TerrainGenerator.AbsClampNoiseModifier())
+            .octavate(5, 0.5, 1.2, FractalFunction.FBM, false)
+            .scale(0.005)
+            .addModifier(new NoiseUtils.AbsClampNoiseModifier())
             .build()),
-    EROSION(JNoise.newBuilder()
-            .fastSimplex(FastSimplexNoiseGenerator.newBuilder().build())
-            .scale(0.06)
+    DENSITY(JNoise.newBuilder()
+            .fastSimplex(FastSimplexNoiseGenerator.newBuilder()
+                    .setSeed(0)
+                    .build())
+            .octavate(5, 0.7, 1.6, FractalFunction.FBM, true)
+            .scale(0.006)
+            .addModifier(new TerrainGenerator.AbsClampNoiseModifier())
             .build());
 
     final private JNoise noise;
@@ -25,11 +29,11 @@ public enum NoiseRegistry {
         this.noise = noise;
     }
 
-    double evaluateNoise(int x, int z) {
+    public double evaluateNoise(int x, int z) {
         return noise.evaluateNoise(x, z);
     }
 
-    double evaluateNoise(int x, int y, int z) {
+    public double evaluateNoise(int x, int y, int z) {
         return noise.evaluateNoise(x, y, z);
     }
 }

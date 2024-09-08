@@ -1,7 +1,5 @@
 package me.pixlent;
 
-import net.minestom.server.coordinate.Point;
-
 public abstract class TerrainBuilder {
     long seed;
 
@@ -11,5 +9,5 @@ public abstract class TerrainBuilder {
 
     abstract int getSurfaceHeight(int x, int z);
 
-    abstract double getDensity(Point pos);
+    abstract double getDensity(int x, int y, int z);
 }
