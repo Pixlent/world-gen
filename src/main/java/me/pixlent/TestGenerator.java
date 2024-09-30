@@ -57,4 +57,8 @@ public class TestGenerator implements Generator {
             }
         }
     }
+
+    private void decorate() {
+
+    }
 }
